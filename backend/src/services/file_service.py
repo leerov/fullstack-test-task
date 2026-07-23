@@ -6,6 +6,7 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 
 from src.database import async_session_maker
+from src.logger import logger
 from src.models import StoredFile
 from src.storage import storage_provider
 
@@ -33,6 +34,7 @@ async def create_file(title: str, upload_file: UploadFile) -> StoredFile:
     suffix = Path(upload_file.filename or "").suffix
     stored_name = f"{file_id}{suffix}"
     storage_provider.save(stored_name, content)
+    logger.info(f"Successfully saved file to storage: {stored_name}")
 
     file_item = StoredFile(
         id=file_id,
@@ -69,6 +71,7 @@ async def delete_file(file_id: str) -> None:
         storage_provider.delete(file_item.stored_name)
         await session.delete(file_item)
         await session.commit()
+        logger.info(f"Deleted file {file_id} from database and storage")
 
 
 async def get_file_path(file_id: str) -> tuple[StoredFile, Path]:

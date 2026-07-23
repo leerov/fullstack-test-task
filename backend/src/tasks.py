@@ -4,6 +4,7 @@ from celery import Celery
 
 from src.config import settings
 from src.database_sync import sync_session_maker
+from src.logger import logger
 from src.models import Alert, StoredFile
 from src.storage import storage_provider
 
@@ -34,6 +35,7 @@ def scan_file_for_threats(file_id: str) -> None:
         file_item.scan_details = ", ".join(reasons) if reasons else "no threats found"
         file_item.requires_attention = bool(reasons)
         session.commit()
+        logger.info(f"Threat scan completed for {file_id}: status={file_item.scan_status}")
 
     extract_file_metadata.delay(file_id)
 
