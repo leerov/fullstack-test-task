@@ -6,19 +6,13 @@ from fastapi import HTTPException, UploadFile, status
 from sqlalchemy import select
 
 from src.database import async_session_maker
-from src.models import Alert, StoredFile
+from src.models import StoredFile
 from src.storage import storage_provider
 
 
 async def list_files() -> list[StoredFile]:
     async with async_session_maker() as session:
         result = await session.execute(select(StoredFile).order_by(StoredFile.created_at.desc()))
-        return list(result.scalars().all())
-
-
-async def list_alerts() -> list[Alert]:
-    async with async_session_maker() as session:
-        result = await session.execute(select(Alert).order_by(Alert.created_at.desc()))
         return list(result.scalars().all())
 
 
@@ -83,12 +77,3 @@ async def get_file_path(file_id: str) -> tuple[StoredFile, Path]:
     if not stored_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stored file not found")
     return file_item, stored_path
-
-
-async def create_alert(file_id: str, level: str, message: str) -> Alert:
-    alert = Alert(file_id=file_id, level=level, message=message)
-    async with async_session_maker() as session:
-        session.add(alert)
-        await session.commit()
-        await session.refresh(alert)
-        return alert
