@@ -5,6 +5,7 @@ services:
     container_name: backend
     volumes:
       - ./backend:/backend
+      - backend-storage-volume:/backend/storage
     env_file: ".env.dev"
     ports:
       - "8000:8000"
@@ -21,6 +22,7 @@ services:
     env_file: ".env.dev"
     volumes:
       - ./backend:/backend
+      - backend-storage-volume:/backend/storage
     depends_on:
       backend-db:
         condition: service_healthy
@@ -60,3 +62,4 @@ services:
 
 volumes:
   backend-db-volume:
+  backend-storage-volume:
