@@ -1,20 +1,54 @@
-## Тестовое задание на позицию Fullstack разработчика (Python + React)
+# File Sharing App (Refactored)
 
-**Вводные:**
-1. Здесь представлен MVP проект файлообменника. Он позволяет загружать файлы, проверяет их на подозрительный контент и отправляет алерты;
-2. Репозиторий содержит в себе бэкенд и фронтенд части;
-3. В обоих частях присутствуют баги, неоптимизированный код, неудачные архитектурные решения.
+This project is a refactored version of a file-sharing MVP that allows users to upload files, checks them for suspicious content, and sends alerts.
 
-**Задачи:**
-1. Проведите рефакторинг бэкенда, не ломая бизнес-логики: предложите свое видение архитектуры и реализуйте его;
-2. (Дополнительно) На бэкенде есть возможность неочевидной оптимизации - выполните ее;
-3. (Дополнительно) Разбейте логику фронтенда на слои;
+## 🚀 Key Improvements
 
-**Запуск:**
-1. ```docker compose -f docker-compose.dev.yml up```
-2. ```docker exec -it backend alembic upgrade head```
+### Backend Architecture
+- **Modular Services**: Split monolithic `service.py` into `file_service.py` and `alert_service.py`.
+- **Storage Abstraction**: Introduced `StorageProvider` interface with a `LocalStorageProvider` implementation, allowing easy switching to S3 or other storage backends.
+- **Configuration Management**: Centralized settings using `pydantic-settings` in `config.py`.
+- **Database Layer**: Unified database engine and session management in `database.py` and `database_sync.py`.
+- **Celery Optimization**: Replaced unsafe `asyncio` hacks in Celery tasks with synchronous `psycopg2` driver for stability.
+- **Validation**: Added strict file type and MIME type validation in `validators.py`.
+- **Logging**: Integrated structured logging using `loguru`.
+- **PDF Optimization**: Replaced manual binary string counting with `pypdf` for accurate page count extraction.
 
+### Frontend Architecture
+- **Component-Based Structure**: Decomposed the main page into reusable components: `Header`, `FileTable`, `AlertTable`, and `UploadModal`.
+- **Custom Hooks**: Extracted data fetching and state logic into `useFiles`, `useAlerts`, and `useFileUpload` hooks.
+- **API Client**: Created a centralized API client with error handling in `lib/api/client.ts`.
+- **Auto-Refresh**: Implemented polling in `useFiles` hook to automatically update file statuses every 5 seconds.
 
-**Открыть фронт:** ```http://localhost:3000/test``` 
+### DevOps & Infrastructure
+- **Docker Compose**: 
+  - Pinned specific versions for PostgreSQL (`16-alpine`) and Redis (`7-alpine`).
+  - Added healthchecks for dependent services to ensure correct startup order.
+  - Added named volumes for persistent storage of both database and uploaded files.
+- **Makefile**: Added convenient commands for managing the project lifecycle (`up`, `down`, `migrate`, `logs`).
 
-**Открыть бэк:** ```http://localhost:8000/docs```
+## 🛠️ Setup & Running
+
+1. **Start services:**
+   ```bash
+   make up
+   ```
+
+2. **Apply database migrations:**
+   ```bash
+   make migrate
+   ```
+
+3. **Access the application:**
+   - **Frontend:** [http://localhost:3000/test](http://localhost:3000/test)
+   - **Backend API Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+
+4. **View logs:**
+   ```bash
+   make logs
+   ```
+
+5. **Stop services:**
+   ```bash
+   make down
+   ```
