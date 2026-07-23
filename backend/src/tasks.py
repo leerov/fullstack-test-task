@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from celery import Celery
+from pypdf import PdfReader
 
 from src.config import settings
 from src.database_sync import sync_session_maker
@@ -67,8 +68,11 @@ def extract_file_metadata(file_id: str) -> None:
             metadata["line_count"] = len(content.splitlines())
             metadata["char_count"] = len(content)
         elif file_item.mime_type == "application/pdf":
-            content = stored_path.read_bytes()
-            metadata["approx_page_count"] = max(content.count(b"/Type /Page"), 1)
+            try:
+                reader = PdfReader(str(stored_path))
+                metadata["approx_page_count"] = len(reader.pages)
+            except Exception:
+                metadata["approx_page_count"] = 0
 
         file_item.metadata_json = metadata
         file_item.processing_status = "processed"

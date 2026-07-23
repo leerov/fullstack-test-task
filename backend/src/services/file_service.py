@@ -1,4 +1,3 @@
-import mimetypes
 from pathlib import Path
 from uuid import uuid4
 
@@ -9,6 +8,7 @@ from src.database import async_session_maker
 from src.logger import logger
 from src.models import StoredFile
 from src.storage import storage_provider
+from src.validators import validate_file
 
 
 async def list_files() -> list[StoredFile]:
@@ -27,8 +27,7 @@ async def get_file(file_id: str) -> StoredFile:
 
 async def create_file(title: str, upload_file: UploadFile) -> StoredFile:
     content = await upload_file.read()
-    if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is empty")
+    validate_file(upload_file.filename or "", upload_file.content_type, content)
 
     file_id = str(uuid4())
     suffix = Path(upload_file.filename or "").suffix
