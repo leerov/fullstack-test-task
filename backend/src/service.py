@@ -7,11 +7,7 @@ from sqlalchemy import select
 
 from src.database import async_session_maker
 from src.models import Alert, StoredFile
-
-
-BASE_DIR = Path(__file__).resolve().parent.parent
-STORAGE_DIR = BASE_DIR / "storage" / "files"
-STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+from src.storage import storage_provider
 
 
 async def list_files() -> list[StoredFile]:
@@ -42,8 +38,7 @@ async def create_file(title: str, upload_file: UploadFile) -> StoredFile:
     file_id = str(uuid4())
     suffix = Path(upload_file.filename or "").suffix
     stored_name = f"{file_id}{suffix}"
-    stored_path = STORAGE_DIR / stored_name
-    stored_path.write_bytes(content)
+    storage_provider.save(stored_name, content)
 
     file_item = StoredFile(
         id=file_id,
@@ -77,16 +72,14 @@ async def delete_file(file_id: str) -> None:
         file_item = await session.get(StoredFile, file_id)
         if not file_item:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-        stored_path = STORAGE_DIR / file_item.stored_name
-        if stored_path.exists():
-            stored_path.unlink()
+        storage_provider.delete(file_item.stored_name)
         await session.delete(file_item)
         await session.commit()
 
 
 async def get_file_path(file_id: str) -> tuple[StoredFile, Path]:
     file_item = await get_file(file_id)
-    stored_path = STORAGE_DIR / file_item.stored_name
+    stored_path = storage_provider.get_path(file_item.stored_name)
     if not stored_path.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stored file not found")
     return file_item, stored_path

@@ -5,7 +5,7 @@ from celery import Celery
 from src.config import settings
 from src.database_sync import sync_session_maker
 from src.models import Alert, StoredFile
-from src.service import STORAGE_DIR
+from src.storage import storage_provider
 
 celery_app = Celery("file_tasks", broker=settings.REDIS_URL, backend=settings.REDIS_URL)
 
@@ -45,7 +45,7 @@ def extract_file_metadata(file_id: str) -> None:
         if not file_item:
             return
 
-        stored_path = STORAGE_DIR / file_item.stored_name
+        stored_path = storage_provider.get_path(file_item.stored_name)
         if not stored_path.exists():
             file_item.processing_status = "failed"
             file_item.scan_status = file_item.scan_status or "failed"
