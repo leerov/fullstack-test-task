@@ -1,19 +1,17 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi import File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette import status
+from src.config import settings
 from src.schemas import AlertItem, FileItem, FileUpdate
-from src.service import create_file, delete_file, get_file, list_alerts, list_files, update_file, STORAGE_DIR
+from src.services import create_file, delete_file, get_file, get_file_path, list_alerts, list_files, update_file
 from src.tasks import scan_file_for_threats
 
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,13 +19,19 @@ app.add_middleware(
 
 
 @app.get("/files", response_model=list[FileItem])
-async def list_files_view():
-    return await list_files()
+async def list_files_view(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of records to return"),
+):
+    return await list_files(skip=skip, limit=limit)
 
 
 @app.get("/alerts", response_model=list[AlertItem])
-async def list_alerts_view():
-    return await list_alerts()
+async def list_alerts_view(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of records to return"),
+):
+    return await list_alerts(skip=skip, limit=limit)
 
 
 @app.post("/files", response_model=FileItem, status_code=201)
@@ -55,10 +59,7 @@ async def update_file_view(
 
 @app.get("/files/{file_id}/download")
 async def download_file(file_id: str):
-    file_item = await get_file(file_id)
-    stored_path = STORAGE_DIR / file_item.stored_name
-    if not stored_path.exists():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stored file not found")
+    file_item, stored_path = await get_file_path(file_id)
     return FileResponse(
         path=stored_path,
         media_type=file_item.mime_type,

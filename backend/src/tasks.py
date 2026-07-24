@@ -1,31 +1,21 @@
-import asyncio
-import os
 from pathlib import Path
+
 from celery import Celery
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from pypdf import PdfReader
+
+from src.config import settings
+from src.database_sync import sync_session_maker
+from src.logger import logger
 from src.models import Alert, StoredFile
-from src.service import STORAGE_DIR, DB_URL
+from src.storage import storage_provider
 
-REDIS_URL = os.environ.get("REDIS_URL", "redis://backend-redis:6379/0")
-_worker_loop: asyncio.AbstractEventLoop | None = None
-
-
-def run_in_worker_loop(coroutine):
-    global _worker_loop
-    if _worker_loop is None or _worker_loop.is_closed():
-        _worker_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(_worker_loop)
-    return _worker_loop.run_until_complete(coroutine)
+celery_app = Celery("file_tasks", broker=settings.REDIS_URL, backend=settings.REDIS_URL)
 
 
-celery_app = Celery("file_tasks", broker=REDIS_URL, backend=REDIS_URL)
-engine = create_async_engine(DB_URL)
-async_session_maker = async_sessionmaker(engine, expire_on_commit=False)
-
-
-async def _scan_file_for_threats(file_id: str) -> None:
-    async with async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+@celery_app.task
+def scan_file_for_threats(file_id: str) -> None:
+    with sync_session_maker() as session:
+        file_item = session.get(StoredFile, file_id)
         if not file_item:
             return
 
@@ -36,7 +26,7 @@ async def _scan_file_for_threats(file_id: str) -> None:
         if extension in {".exe", ".bat", ".cmd", ".sh", ".js"}:
             reasons.append(f"suspicious extension {extension}")
 
-        if file_item.size > 10 * 1024 * 1024:
+        if file_item.size > settings.MAX_FILE_SIZE_BYTES:
             reasons.append("file is larger than 10 MB")
 
         if extension == ".pdf" and file_item.mime_type not in {"application/pdf", "application/octet-stream"}:
@@ -45,23 +35,25 @@ async def _scan_file_for_threats(file_id: str) -> None:
         file_item.scan_status = "suspicious" if reasons else "clean"
         file_item.scan_details = ", ".join(reasons) if reasons else "no threats found"
         file_item.requires_attention = bool(reasons)
-        await session.commit()
+        session.commit()
+        logger.info(f"Threat scan completed for {file_id}: status={file_item.scan_status}")
 
     extract_file_metadata.delay(file_id)
 
 
-async def _extract_file_metadata(file_id: str) -> None:
-    async with async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+@celery_app.task
+def extract_file_metadata(file_id: str) -> None:
+    with sync_session_maker() as session:
+        file_item = session.get(StoredFile, file_id)
         if not file_item:
             return
 
-        stored_path = STORAGE_DIR / file_item.stored_name
+        stored_path = storage_provider.get_path(file_item.stored_name)
         if not stored_path.exists():
             file_item.processing_status = "failed"
             file_item.scan_status = file_item.scan_status or "failed"
             file_item.scan_details = "stored file not found during metadata extraction"
-            await session.commit()
+            session.commit()
             send_file_alert.delay(file_id)
             return
 
@@ -72,23 +64,33 @@ async def _extract_file_metadata(file_id: str) -> None:
         }
 
         if file_item.mime_type.startswith("text/"):
-            content = stored_path.read_text(encoding="utf-8", errors="ignore")
-            metadata["line_count"] = len(content.splitlines())
-            metadata["char_count"] = len(content)
+            line_count = 0
+            char_count = 0
+            with open(stored_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    line_count += 1
+                    char_count += len(line)
+            metadata["line_count"] = line_count
+            metadata["char_count"] = char_count
         elif file_item.mime_type == "application/pdf":
-            content = stored_path.read_bytes()
-            metadata["approx_page_count"] = max(content.count(b"/Type /Page"), 1)
+            try:
+                reader = PdfReader(str(stored_path))
+                metadata["approx_page_count"] = len(reader.pages)
+            except Exception as e:
+                logger.exception(f"Failed to read PDF {file_id}: {e}")
+                metadata["approx_page_count"] = 0
 
         file_item.metadata_json = metadata
         file_item.processing_status = "processed"
-        await session.commit()
+        session.commit()
 
     send_file_alert.delay(file_id)
 
 
-async def _send_file_alert(file_id: str) -> None:
-    async with async_session_maker() as session:
-        file_item = await session.get(StoredFile, file_id)
+@celery_app.task
+def send_file_alert(file_id: str) -> None:
+    with sync_session_maker() as session:
+        file_item = session.get(StoredFile, file_id)
         if not file_item:
             return
 
@@ -104,19 +106,4 @@ async def _send_file_alert(file_id: str) -> None:
             alert = Alert(file_id=file_id, level="info", message="File processed successfully")
 
         session.add(alert)
-        await session.commit()
-
-
-@celery_app.task
-def scan_file_for_threats(file_id: str) -> None:
-    run_in_worker_loop(_scan_file_for_threats(file_id))
-
-
-@celery_app.task
-def extract_file_metadata(file_id: str) -> None:
-    run_in_worker_loop(_extract_file_metadata(file_id))
-
-
-@celery_app.task
-def send_file_alert(file_id: str) -> None:
-    run_in_worker_loop(_send_file_alert(file_id))
+        session.commit()

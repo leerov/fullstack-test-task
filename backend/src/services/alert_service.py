@@ -1,0 +1,24 @@
+from sqlalchemy import select
+
+from src.database import async_session_maker
+from src.models import Alert
+
+
+async def list_alerts(skip: int = 0, limit: int = 100) -> list[Alert]:
+    async with async_session_maker() as session:
+        result = await session.execute(
+            select(Alert)
+            .order_by(Alert.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+
+async def create_alert(file_id: str, level: str, message: str) -> Alert:
+    alert = Alert(file_id=file_id, level=level, message=message)
+    async with async_session_maker() as session:
+        session.add(alert)
+        await session.commit()
+        await session.refresh(alert)
+        return alert

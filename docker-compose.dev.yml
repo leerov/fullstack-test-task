@@ -5,11 +5,15 @@ services:
     container_name: backend
     volumes:
       - ./backend:/backend
+      - backend-storage-volume:/backend/storage
     env_file: ".env.dev"
     ports:
       - "8000:8000"
     depends_on:
-      - backend-db
+      backend-db:
+        condition: service_healthy
+      backend-redis:
+        condition: service_healthy
 
   backend-worker:
     build: ./backend
@@ -18,21 +22,35 @@ services:
     env_file: ".env.dev"
     volumes:
       - ./backend:/backend
+      - backend-storage-volume:/backend/storage
     depends_on:
-      - backend-db
+      backend-db:
+        condition: service_healthy
+      backend-redis:
+        condition: service_healthy
 
   backend-db:
-    image: postgres:latest
+    image: postgres:16-alpine
     container_name: backend-db
     ports:
       - "5433:5433"
     env_file: ".env.dev"
     volumes:
-      - backend-db-volume:/var/lib/postgresql
+      - backend-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend-redis:
-    image: redis:latest
+    image: redis:7-alpine
     container_name: backend-redis
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -44,3 +62,4 @@ services:
 
 volumes:
   backend-db-volume:
+  backend-storage-volume:

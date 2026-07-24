@@ -1,0 +1,30 @@
+export const API_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined'
+    ? window.location.hostname === 'localhost'
+      ? 'http://localhost:8000'
+      : ''
+    : 'http://localhost:8000');
+
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const url = `${API_URL}${endpoint}`;
+
+  const response = await fetch(url, {
+    ...options,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    const message = errorData.detail || response.statusText || 'Произошла ошибка при запросе к API';
+    throw new ApiError(response.status, message);
+  }
+
+  return response.json() as Promise<T>;
+}
