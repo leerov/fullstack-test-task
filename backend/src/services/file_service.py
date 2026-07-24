@@ -1,3 +1,4 @@
+import mimetypes
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,9 +12,14 @@ from src.storage import storage_provider
 from src.validators import validate_file
 
 
-async def list_files() -> list[StoredFile]:
+async def list_files(skip: int = 0, limit: int = 100) -> list[StoredFile]:
     async with async_session_maker() as session:
-        result = await session.execute(select(StoredFile).order_by(StoredFile.created_at.desc()))
+        result = await session.execute(
+            select(StoredFile)
+            .order_by(StoredFile.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
         return list(result.scalars().all())
 
 

@@ -21,8 +21,11 @@ app.add_middleware(
 
 
 @app.get("/files", response_model=list[FileItem])
-async def list_files_view():
-    return await list_files()
+async def list_files_view(
+    skip: int = 0,
+    limit: int = 100,
+):
+    return await list_files(skip=skip, limit=limit)
 
 
 @app.get("/alerts", response_model=list[AlertItem])
