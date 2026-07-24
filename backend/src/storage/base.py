@@ -8,6 +8,10 @@ class StorageProvider(ABC):
         pass
 
     @abstractmethod
+    def save_file(self, filename: str, src_path: Path) -> str:
+        pass
+
+    @abstractmethod
     def delete(self, filename: str) -> None:
         pass
 

@@ -1,12 +1,14 @@
 import os
+import shutil
 from pathlib import Path
 
+from src.config import settings
 from src.storage.base import StorageProvider
 
 
 class LocalStorageProvider(StorageProvider):
     def __init__(self) -> None:
-        self.base_dir = Path(__file__).resolve().parent.parent.parent / "storage" / "files"
+        self.base_dir = Path(settings.STORAGE_PATH).resolve()
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def _sanitize_filename(self, filename: str) -> str:
@@ -21,6 +23,12 @@ class LocalStorageProvider(StorageProvider):
         safe_filename = self._sanitize_filename(filename)
         file_path = self.base_dir / safe_filename
         file_path.write_bytes(content)
+        return str(file_path)
+
+    def save_file(self, filename: str, src_path: Path) -> str:
+        safe_filename = self._sanitize_filename(filename)
+        file_path = self.base_dir / safe_filename
+        shutil.copy2(src_path, file_path)
         return str(file_path)
 
     def delete(self, filename: str) -> None:

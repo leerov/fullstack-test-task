@@ -1,3 +1,4 @@
+from pathlib import Path
 from pydantic_settings import BaseSettings
 
 
@@ -11,6 +12,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://backend-redis:6379/0"
 
     MAX_FILE_SIZE_BYTES: int = 10 * 1024 * 1024
+
+    STORAGE_PATH: str = str(Path(__file__).resolve().parent.parent / "storage" / "files")
 
     @property
     def db_url(self) -> str:

@@ -22,8 +22,38 @@ export function useFiles() {
 
   useEffect(() => {
     loadFiles();
-    const interval = setInterval(loadFiles, 5000);
-    return () => clearInterval(interval);
+
+    let interval: NodeJS.Timeout | null = null;
+
+    const startPolling = () => {
+      if (!interval) {
+        interval = setInterval(loadFiles, 5000);
+      }
+    };
+
+    const stopPolling = () => {
+      if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        loadFiles();
+        startPolling();
+      }
+    };
+
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   return { files, isLoading, error, refetch: loadFiles };

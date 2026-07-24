@@ -1,4 +1,6 @@
 import mimetypes
+import shutil
+import tempfile
 from pathlib import Path
 from uuid import uuid4
 
@@ -32,29 +34,40 @@ async def get_file(file_id: str) -> StoredFile:
 
 
 async def create_file(title: str, upload_file: UploadFile) -> StoredFile:
-    content = await upload_file.read()
-    validate_file(upload_file.filename or "", upload_file.content_type, content)
-
+    filename = upload_file.filename or ""
     file_id = str(uuid4())
-    suffix = Path(upload_file.filename or "").suffix
+    suffix = Path(filename).suffix
     stored_name = f"{file_id}{suffix}"
-    storage_provider.save(stored_name, content)
-    logger.info(f"Successfully saved file to storage: {stored_name}")
 
-    file_item = StoredFile(
-        id=file_id,
-        title=title,
-        original_name=upload_file.filename or stored_name,
-        stored_name=stored_name,
-        mime_type=upload_file.content_type or mimetypes.guess_type(stored_name)[0] or "application/octet-stream",
-        size=len(content),
-        processing_status="uploaded",
-    )
-    async with async_session_maker() as session:
-        session.add(file_item)
-        await session.commit()
-        await session.refresh(file_item)
-    return file_item
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(upload_file.file, tmp)
+        tmp_path = Path(tmp.name)
+
+    try:
+        validate_file(filename, upload_file.content_type, tmp_path)
+
+        storage_provider.save_file(stored_name, tmp_path)
+        logger.info(f"Successfully saved file to storage: {stored_name}")
+
+        file_size = tmp_path.stat().st_size
+        mime_type = upload_file.content_type or mimetypes.guess_type(stored_name)[0] or "application/octet-stream"
+
+        file_item = StoredFile(
+            id=file_id,
+            title=title,
+            original_name=filename,
+            stored_name=stored_name,
+            mime_type=mime_type,
+            size=file_size,
+            processing_status="uploaded",
+        )
+        async with async_session_maker() as session:
+            session.add(file_item)
+            await session.commit()
+            await session.refresh(file_item)
+        return file_item
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
 
 async def update_file(file_id: str, title: str) -> StoredFile:

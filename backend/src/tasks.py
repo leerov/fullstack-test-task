@@ -71,7 +71,8 @@ def extract_file_metadata(file_id: str) -> None:
             try:
                 reader = PdfReader(str(stored_path))
                 metadata["approx_page_count"] = len(reader.pages)
-            except Exception:
+            except Exception as e:
+                logger.exception(f"Failed to read PDF {file_id}: {e}")
                 metadata["approx_page_count"] = 0
 
         file_item.metadata_json = metadata
