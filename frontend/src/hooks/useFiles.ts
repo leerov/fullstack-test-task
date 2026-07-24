@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getFiles } from '../lib/api/files';
 import type { FileItem } from '../lib/api/types';
 
@@ -7,7 +7,7 @@ export function useFiles() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -18,7 +18,7 @@ export function useFiles() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadFiles();
@@ -54,7 +54,7 @@ export function useFiles() {
       stopPolling();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [loadFiles]);
 
   return { files, isLoading, error, refetch: loadFiles };
 }

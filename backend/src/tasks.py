@@ -64,9 +64,14 @@ def extract_file_metadata(file_id: str) -> None:
         }
 
         if file_item.mime_type.startswith("text/"):
-            content = stored_path.read_text(encoding="utf-8", errors="ignore")
-            metadata["line_count"] = len(content.splitlines())
-            metadata["char_count"] = len(content)
+            line_count = 0
+            char_count = 0
+            with open(stored_path, "r", encoding="utf-8", errors="ignore") as f:
+                for line in f:
+                    line_count += 1
+                    char_count += len(line)
+            metadata["line_count"] = line_count
+            metadata["char_count"] = char_count
         elif file_item.mime_type == "application/pdf":
             try:
                 reader = PdfReader(str(stored_path))

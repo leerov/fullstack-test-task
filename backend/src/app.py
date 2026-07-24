@@ -27,8 +27,11 @@ async def list_files_view(
 
 
 @app.get("/alerts", response_model=list[AlertItem])
-async def list_alerts_view():
-    return await list_alerts()
+async def list_alerts_view(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(100, ge=1, le=100, description="Maximum number of records to return"),
+):
+    return await list_alerts(skip=skip, limit=limit)
 
 
 @app.post("/files", response_model=FileItem, status_code=201)
