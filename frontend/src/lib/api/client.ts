@@ -22,7 +22,8 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new ApiError(response.status, errorData.detail || 'Произошла ошибка при запросе к API');
+    const message = errorData.detail || response.statusText || 'Произошла ошибка при запросе к API';
+    throw new ApiError(response.status, message);
   }
 
   return response.json() as Promise<T>;

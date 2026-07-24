@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getAlerts } from '../lib/api/alerts';
 import type { AlertItem } from '../lib/api/types';
 
@@ -7,7 +7,7 @@ export function useAlerts() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadAlerts = async () => {
+  const loadAlerts = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -18,11 +18,11 @@ export function useAlerts() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadAlerts();
-  }, []);
+  }, [loadAlerts]);
 
   return { alerts, isLoading, error, refetch: loadAlerts };
 }
