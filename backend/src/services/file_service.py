@@ -39,13 +39,18 @@ async def create_file(title: str, upload_file: UploadFile) -> StoredFile:
     suffix = Path(filename).suffix
     stored_name = f"{file_id}{suffix}"
 
+    # Non-obvious optimization: Validate file type from the header (first 261 bytes)
+    # before performing any disk I/O, preventing malicious files from being written to disk.
+    header = await upload_file.file.read(261)
+    await upload_file.file.seek(0)
+
+    validate_file(filename, upload_file.content_type, header)
+
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         shutil.copyfileobj(upload_file.file, tmp)
         tmp_path = Path(tmp.name)
 
     try:
-        validate_file(filename, upload_file.content_type, tmp_path)
-
         storage_provider.save_file(stored_name, tmp_path)
         logger.info(f"Successfully saved file to storage: {stored_name}")
 

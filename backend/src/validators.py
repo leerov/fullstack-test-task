@@ -16,7 +16,7 @@ ALLOWED_MIME_TYPES = {
 }
 
 
-def validate_file(filename: str, content_type: str | None, file_path: Path) -> None:
+def validate_file(filename: str, content_type: str | None, file_header: bytes) -> None:
     if not filename:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Filename is required")
 
@@ -27,10 +27,10 @@ def validate_file(filename: str, content_type: str | None, file_path: Path) -> N
             detail=f"File extension '{ext}' is not allowed. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}"
         )
 
-    if not file_path.exists() or file_path.stat().st_size == 0:
+    if not file_header:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File is empty")
 
-    kind = filetype.guess(file_path)
+    kind = filetype.guess(file_header)
     if kind is not None:
         if kind.mime not in ALLOWED_MIME_TYPES:
             raise HTTPException(

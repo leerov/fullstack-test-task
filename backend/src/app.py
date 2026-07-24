@@ -3,6 +3,7 @@ from fastapi import File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from starlette import status
+from src.config import settings
 from src.schemas import AlertItem, FileItem, FileUpdate
 from src.services import create_file, delete_file, get_file, get_file_path, list_alerts, list_files, update_file
 from src.tasks import scan_file_for_threats
@@ -10,10 +11,7 @@ from src.tasks import scan_file_for_threats
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

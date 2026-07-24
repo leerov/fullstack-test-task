@@ -1,3 +1,4 @@
+import urllib.parse
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -17,11 +18,13 @@ class Settings(BaseSettings):
 
     STORAGE_PATH: str = str(Path(__file__).resolve().parent.parent / "storage" / "files")
 
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
     @property
     def db_url(self) -> str:
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:"
-            f"{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:"
+            f"{urllib.parse.quote_plus(self.POSTGRES_PASSWORD)}@{self.POSTGRES_HOST}:"
             f"{self.PGPORT}/{self.POSTGRES_DB}"
         )
 
