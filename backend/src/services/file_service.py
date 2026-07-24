@@ -41,8 +41,8 @@ async def create_file(title: str, upload_file: UploadFile) -> StoredFile:
 
     # Non-obvious optimization: Validate file type from the header (first 261 bytes)
     # before performing any disk I/O, preventing malicious files from being written to disk.
-    header = await upload_file.file.read(261)
-    await upload_file.file.seek(0)
+    header = upload_file.file.read(261)
+    upload_file.file.seek(0)
 
     validate_file(filename, upload_file.content_type, header)
 
