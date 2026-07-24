@@ -1,5 +1,6 @@
 import { Badge, Button, Spinner, Table } from "react-bootstrap";
 import type { FileItem } from "../lib/api/types";
+import { API_URL } from "../lib/api/client";
 
 interface FileTableProps {
   files: FileItem[];
@@ -86,7 +87,7 @@ export function FileTable({ files, isLoading }: FileTableProps) {
                 <td className="text-nowrap">
                   <Button
                     as="a"
-                    href={`http://localhost:8000/files/${file.id}/download`}
+                    href={`${API_URL}/files/${file.id}/download`}
                     variant="outline-primary"
                     size="sm"
                   >
